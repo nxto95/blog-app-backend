@@ -7,11 +7,25 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { PostsModule } from './posts/posts.module';
 import { CommentsModule } from './comments/comments.module';
-import { RepliesModule } from './replies/replies.module';
+import { APP_GUARD } from '@nestjs/core';
+import { BlockedUserGuard } from './common/guards/block.guard';
 
 @Module({
-  imports: [ConfigurationsModule, DatabasesModule, AuthModule, UsersModule, PostsModule, CommentsModule, RepliesModule],
+  imports: [
+    ConfigurationsModule,
+    DatabasesModule,
+    AuthModule,
+    UsersModule,
+    PostsModule,
+    CommentsModule,
+  ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: BlockedUserGuard,
+    },
+  ],
 })
 export class AppModule {}

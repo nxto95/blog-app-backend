@@ -6,11 +6,12 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { QueryFailedErrorFilter } from './common/filters/query-failed-error.filter';
-
+import cookieParser from 'cookie-parser';
 const logger = new Logger('App');
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.use(cookieParser());
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -23,6 +24,7 @@ async function bootstrap() {
   );
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
   app.useGlobalFilters(new QueryFailedErrorFilter());
+  app.setGlobalPrefix('api');
   await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap()

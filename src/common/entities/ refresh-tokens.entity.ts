@@ -1,11 +1,14 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
-
-import { CommonEntity } from './common.entity';
 import { UserEntity } from './users.entity';
+import { CommonEntity } from './common.entity';
+import { UNIQUE_JTI } from '../types/constants';
 
 @Entity('refresh_tokens')
-@Index(['user', 'familyId'])
+@Index(['userId', 'familyId'])
 export class RefreshTokenEntity extends CommonEntity {
+  @Column({ type: 'uuid', name: 'user_id' })
+  userId: string;
+
   @ManyToOne(() => UserEntity, {
     nullable: false,
     onDelete: 'CASCADE',
@@ -13,31 +16,22 @@ export class RefreshTokenEntity extends CommonEntity {
   @JoinColumn({ name: 'user_id' })
   user: UserEntity;
 
-  @Column({
-    type: 'uuid',
-  })
+  @Column({ type: 'uuid' })
   familyId: string;
 
-  @Index({ unique: true })
-  @Column({
-    type: 'uuid',
-  })
+  @Index(UNIQUE_JTI, { unique: true })
+  @Column({ type: 'uuid' })
   jti: string;
 
-  @Column({
-    type: 'varchar',
-    length: 255,
-  })
+  @Column({ type: 'text' })
   hash: string;
 
-  @Column({
-    type: 'timestamptz',
-  })
+  @Column({ type: 'timestamptz' })
   expiresAt: Date;
 
-  @Column({
-    type: 'timestamptz',
-    nullable: true,
-  })
+  @Column({ type: 'timestamptz', nullable: true })
   revokedAt: Date | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  replacedBy: string | null;
 }

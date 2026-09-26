@@ -1,10 +1,9 @@
-import { IsEmail, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsString, IsStrongPassword, Length } from 'class-validator';
 import { TrimLowerCase } from '../utils/utils';
 
 export class CreateUserDto {
   @IsString()
-  @MinLength(3)
-  @MaxLength(55)
+  @Length(2, 55)
   username: string;
 
   @IsEmail()
@@ -12,7 +11,18 @@ export class CreateUserDto {
   email: string;
 
   @IsString()
-  @MinLength(8)
-  @MaxLength(128)
+  @IsStrongPassword(
+    {
+      minLength: 8,
+      minLowercase: 0,
+      minUppercase: 1,
+      minNumbers: 1,
+      minSymbols: 0,
+    },
+    {
+      message:
+        'password should contain at least 1 uppercase character and 1 number',
+    },
+  )
   password: string;
 }

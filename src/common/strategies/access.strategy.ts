@@ -3,7 +3,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ACCESS_KEY } from '../types/constants';
 import { ConfigService } from '@nestjs/config';
-import { IJWTPayload } from '../types/interfaces';
+import { IAccessTokenPayload } from '../types/interfaces';
 
 @Injectable()
 export class AccessStrategy extends PassportStrategy(Strategy, ACCESS_KEY) {
@@ -15,7 +15,7 @@ export class AccessStrategy extends PassportStrategy(Strategy, ACCESS_KEY) {
     });
   }
 
-  validate(payload: Partial<IJWTPayload>) {
+  validate(payload: IAccessTokenPayload) {
     if (
       !payload ||
       typeof payload !== 'object' ||
