@@ -1,0 +1,10 @@
+export const UNIQUE_USERNAME = 'unique_username';
+export const UNIQUE_EMAIL = 'unique_email';
+export const UNIQUE_USERNAME_MESSAGE = 'username already exists';
+export const UNIQUE_EMAIL_MESSAGE = 'email already exists';
+export const UNIQUE_JTI = 'unique_jti';
+export const UNIQUE_JTI_MESSAGE = 'jti already exists';
+export const INVALID_CREDENTIALS = 'invalid credentials';
+export const LOCAL_KEY = 'local';
+export const ACCESS_KEY = 'access';
+export const REFRESH_KEY = 'refresh';
