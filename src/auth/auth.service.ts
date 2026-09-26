@@ -14,4 +14,6 @@ export class AuthService {
     if (!isPasswordMatch) throw new UnauthorizedException(INVALID_CREDENTIALS);
     return { id: user.id, role: user.role, isBlocked: user.isBlocked };
   }
+
+  async createRefreshTokenRecord() {}
 }

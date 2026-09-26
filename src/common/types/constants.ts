@@ -8,3 +8,5 @@ export const INVALID_CREDENTIALS = 'invalid credentials';
 export const LOCAL_KEY = 'local';
 export const ACCESS_KEY = 'access';
 export const REFRESH_KEY = 'refresh';
+export const REFRESH_TOKEN_KEY = 'refreshToken';
+export const ROLES_KEY = 'roles';
