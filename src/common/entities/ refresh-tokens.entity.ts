@@ -34,4 +34,7 @@ export class RefreshTokenEntity extends CommonEntity {
 
   @Column({ type: 'uuid', nullable: true })
   replacedBy: string | null;
+
+  @Column({ type: 'varchar' })
+  userAgent: string;
 }

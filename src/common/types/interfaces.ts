@@ -8,6 +8,11 @@ export interface IAuthUser extends Express.User {
   id: string;
   role: UserRole;
 }
+export interface IRefreshAuthUser {
+  id: string;
+  jti: string;
+  refreshToken: string;
+}
 
 export type IAuthenticatedRequest = Request & {
   user: IAuthUser;

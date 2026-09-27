@@ -5,4 +5,5 @@ export interface CreateRefreshTokenInput {
   token: string;
   expiresAt: Date;
   replacedBy?: string | null;
+  userAgent?: string;
 }

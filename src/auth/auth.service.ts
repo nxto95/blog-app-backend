@@ -34,7 +34,7 @@ export class AuthService {
     return { id: user.id, role: user.role, isBlocked: user.isBlocked };
   }
 
-  async register(dto: CreateUserDto, response: Response) {
+  async register(dto: CreateUserDto, response: Response, userAgent: string) {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -51,11 +51,13 @@ export class AuthService {
           jti,
           token: refreshToken,
           expiresAt,
+          replacedBy: null,
+          userAgent,
         },
         queryRunner.manager,
       );
       await queryRunner.commitTransaction();
-      const { accessToken } = await this.tokensProvider.issueAccessToken(user);
+      const accessToken = await this.tokensProvider.issueAccessToken(user);
       this.cookiesProvider.setRefreshToken(response, refreshToken);
       return { accessToken };
     } catch (error) {
@@ -67,7 +69,11 @@ export class AuthService {
     }
   }
 
-  async login(user: IAuthUser | UserEntity, response: Response) {
+  async login(
+    user: IAuthUser | UserEntity,
+    response: Response,
+    userAgent: string,
+  ) {
     const newFamilyId = randomUUID();
     const { refreshToken, jti, expiresAt } =
       await this.tokensProvider.issueRefreshToken(user.id);
@@ -77,10 +83,11 @@ export class AuthService {
       jti,
       token: refreshToken,
       expiresAt,
+      userAgent,
     });
     this.cookiesProvider.setRefreshToken(response, refreshToken);
 
-    const { accessToken } = await this.tokensProvider.issueAccessToken(
+    const accessToken = await this.tokensProvider.issueAccessToken(
       user as UserEntity,
     );
     return { accessToken };
@@ -96,7 +103,6 @@ export class AuthService {
     await this.tokensProvider.revokeByJti(payload.jti);
     this.cookiesProvider.clearRefreshToken(response);
   }
-
   async refresh(refreshToken: string, response: Response) {
     const payload = await this.jwtService.verifyAsync<IRefreshTokenPayload>(
       refreshToken,
@@ -105,190 +111,81 @@ export class AuthService {
       },
     );
 
-    if (payload.type !== 'refresh') {
-      throw new UnauthorizedException('Invalid refresh token');
-    }
+    if (payload.type !== 'refresh')
+      throw new UnauthorizedException('wrong token type');
 
     const user = await this.usersService.getById(payload.sub);
-
-    if (!user || user.isBlocked) {
-      throw new UnauthorizedException();
-    }
+    if (!user || user.isBlocked)
+      throw new UnauthorizedException('invalid credentials');
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
-
     try {
-      const oldRefreshTokenRecord =
-        await this.tokensProvider.getRefreshTokenByJtiForUpdate(
+      const oldTokensRecord =
+        await this.tokensProvider.getRefreshTokenByJtiWithLock(
           payload.jti,
           queryRunner.manager,
         );
 
-      if (!oldRefreshTokenRecord) {
-        throw new UnauthorizedException('Missing refresh token');
-      }
+      if (!oldTokensRecord || oldTokensRecord.userId !== user.id)
+        throw new UnauthorizedException('invalid credentials');
 
-      if (oldRefreshTokenRecord.userId !== payload.sub) {
-        throw new UnauthorizedException('Invalid refresh token');
-      }
-
-      if (oldRefreshTokenRecord.revokedAt) {
-        throw new UnauthorizedException('Refresh token already used');
-      }
-
-      if (oldRefreshTokenRecord.expiresAt <= new Date()) {
-        throw new UnauthorizedException('Refresh token expired');
-      }
-
-      const isValid = await argon2.verify(
-        oldRefreshTokenRecord.hash,
-        refreshToken,
-      );
-
-      if (!isValid) {
-        throw new UnauthorizedException('Invalid refresh token');
-      }
-
-      const {
-        refreshToken: newRefreshToken,
-        jti,
-        expiresAt,
-      } = await this.tokensProvider.issueRefreshToken(
-        oldRefreshTokenRecord.userId,
-        oldRefreshTokenRecord.familyId,
-      );
-
-      const newRefreshTokenRecord =
-        await this.tokensProvider.createRefreshToken(
-          {
-            userId: oldRefreshTokenRecord.userId,
-            familyId: oldRefreshTokenRecord.familyId,
-            jti,
-            token: newRefreshToken,
-            expiresAt,
-          },
+      if (oldTokensRecord.revokedAt) {
+        await this.tokensProvider.revokeFamily(
+          oldTokensRecord.familyId,
           queryRunner.manager,
         );
 
-      oldRefreshTokenRecord.revokedAt = new Date();
-      oldRefreshTokenRecord.replacedBy = newRefreshTokenRecord.jti;
+        await queryRunner.commitTransaction();
+        this.cookiesProvider.clearRefreshToken(response);
+        throw new UnauthorizedException('reused tokens detection');
+      }
 
-      await queryRunner.manager.save(RefreshTokenEntity, oldRefreshTokenRecord);
+      if (oldTokensRecord.expiresAt <= new Date()) {
+        throw new UnauthorizedException('refresh token expired');
+      }
 
+      const isTokenMatch = await argon2.verify(
+        oldTokensRecord.hash,
+        refreshToken,
+      );
+
+      if (!isTokenMatch) throw new UnauthorizedException('invalid tokens ');
+
+      const {
+        refreshToken: newToken,
+        jti,
+        expiresAt,
+      } = await this.tokensProvider.issueRefreshToken(user.id);
+
+      oldTokensRecord.revokedAt = new Date();
+      oldTokensRecord.replacedBy = jti;
+
+      await queryRunner.manager.save(RefreshTokenEntity, oldTokensRecord);
+
+      await this.tokensProvider.createRefreshToken(
+        {
+          userId: user.id,
+          familyId: oldTokensRecord.familyId,
+          jti,
+          token: newToken,
+          expiresAt,
+          replacedBy: null,
+        },
+        queryRunner.manager,
+      );
       await queryRunner.commitTransaction();
-
-      const { accessToken } = await this.tokensProvider.issueAccessToken(user);
-
-      this.cookiesProvider.setRefreshToken(response, newRefreshToken);
-
+      const accessToken = await this.tokensProvider.issueAccessToken(user);
+      this.cookiesProvider.setRefreshToken(response, newToken);
       return { accessToken };
     } catch (error) {
       if (queryRunner.isTransactionActive) {
         await queryRunner.rollbackTransaction();
       }
-
       throw error;
     } finally {
       await queryRunner.release();
     }
   }
-  // async refresh(refreshToken: string, response: Response) {
-  //   const { type } = await this.jwtService.verifyAsync<IRefreshTokenPayload>(
-  //     refreshToken,
-  //     {
-  //       secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
-  //     },
-  //   );
-  //   if (type !== 'refresh') {
-  //     throw new UnauthorizedException('invalid refresh tokens');
-  //   }
-
-  //   const refreshEntity = await this.refreshTokensService.findByJti(
-  //     payload.jti,
-  //   );
-
-  //   if (!refreshEntity) {
-  //     throw new UnauthorizedException();
-  //   }
-
-  //   if (refreshEntity.userId !== payload.sub) {
-  //     throw new UnauthorizedException();
-  //   }
-
-  //   if (refreshEntity.revokedAt) {
-  //     throw new UnauthorizedException();
-  //   }
-
-  //   if (refreshEntity.expiresAt <= new Date()) {
-  //     throw new UnauthorizedException();
-  //   }
-
-  //   const isValid = await argon2.verify(refreshEntity.hash, refreshToken);
-
-  //   if (!isValid) {
-  //     throw new UnauthorizedException();
-  //   }
-
-  //   const user = await this.usersService.getById(refreshEntity.userId);
-
-  //   if (!user || user.isBlocked) {
-  //     throw new UnauthorizedException();
-  //   }
-
-  //   const queryRunner = this.dataSource.createQueryRunner();
-
-  //   await queryRunner.connect();
-  //   await queryRunner.startTransaction();
-
-  //   try {
-  //     const oldToken = await this.refreshTokensService.findByJtiForUpdate(
-  //       payload.jti,
-  //       queryRunner.manager,
-  //     );
-
-  //     if (!oldToken || oldToken.revokedAt) {
-  //       throw new UnauthorizedException();
-  //     }
-
-  //     const newRefresh = await this.issueRefreshToken(
-  //       user.id,
-  //       oldToken.familyId,
-  //     );
-
-  //     await this.refreshTokensService.revoke(
-  //       oldToken,
-  //       newRefresh.jti,
-  //       queryRunner.manager,
-  //     );
-
-  //     await this.refreshTokensService.create(
-  //       {
-  //         userId: user.id,
-  //         familyId: oldToken.familyId,
-  //         jti: newRefresh.jti,
-  //         token: newRefresh.refreshToken,
-  //         expiresAt: newRefresh.expiresAt,
-  //       },
-  //       queryRunner.manager,
-  //     );
-
-  //     await queryRunner.commitTransaction();
-
-  //     const accessToken = await this.issueAccessToken(user);
-
-  //     this.cookiesProvider.setRefreshToken(response, newRefresh.refreshToken);
-
-  //     return { accessToken };
-  //   } catch (error) {
-  //     if (queryRunner.isTransactionActive) {
-  //       await queryRunner.rollbackTransaction();
-  //     }
-
-  //     throw error;
-  //   } finally {
-  //     await queryRunner.release();
-  //   }
-  // }
 }

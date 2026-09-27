@@ -6,18 +6,22 @@ import {
   Post,
   Req,
   Res,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
+import { type Request, type Response } from 'express';
 import { AuthService } from './auth.service';
+import { AuthCookiesProvider } from './auth-cookies.provider';
 import { CreateUserDto } from '../common/dtos/users.dto';
-import { type Response } from 'express';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { LocalAuthGuard } from '../common/guards/local.guard';
+import { RefreshAuthGuard } from '../common/guards/refresh.guard';
 import {
   type IRequestWithCookies,
   type IAuthUser,
+  type IRefreshAuthUser,
 } from '../common/types/interfaces';
-import { LocalAuthGuard } from '../common/guards/local.guard';
-import { AuthCookiesProvider } from './auth-cookies.provider';
+import { UserAgent } from '../common/decorators/user-agent.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -27,20 +31,50 @@ export class AuthController {
   ) {}
 
   @Post('register')
+  @HttpCode(HttpStatus.CREATED)
   async register(
     @Body() dto: CreateUserDto,
+    @UserAgent() userAgent: string,
     @Res({ passthrough: true }) response: Response,
   ) {
-    return this.authService.register(dto, response);
+    const { accessToken } = await this.authService.register(
+      dto,
+      response,
+      userAgent,
+    );
+    console.log(userAgent, 'controller');
+
+    return {
+      message: 'new user registered',
+      data: { accessToken },
+    };
   }
 
   @Post('login')
   @UseGuards(LocalAuthGuard)
+  @HttpCode(HttpStatus.OK)
   async login(
     @CurrentUser() user: IAuthUser,
+    @UserAgent() userAgent: string,
     @Res({ passthrough: true }) response: Response,
   ) {
-    return this.authService.login(user, response);
+    return this.authService.login(user, response, userAgent);
+  }
+
+  @Post('refresh')
+  @UseGuards(RefreshAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async refresh(
+    @CurrentUser() user: IRefreshAuthUser,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    if (!user.refreshToken) {
+      this.cookiesProvider.clearRefreshToken(response);
+
+      throw new UnauthorizedException('Missing refresh token');
+    }
+
+    return this.authService.refresh(user.refreshToken, response);
   }
 
   @Post('logout')

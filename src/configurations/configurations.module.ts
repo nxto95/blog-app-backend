@@ -15,6 +15,8 @@ import Joi from 'joi';
         POSTGRES_HOST: Joi.string().required().default('localhost'),
         POSTGRES_PORT: Joi.number().port().default(5432),
         REDIS_PASSWORD: Joi.string().required(),
+        JWT_ACCESS_EXPIRES_IN: Joi.number().integer().positive().required(),
+        JWT_REFRESH_EXPIRES_IN: Joi.number().integer().positive().required(),
       }).options({ convert: true }),
     }),
   ],

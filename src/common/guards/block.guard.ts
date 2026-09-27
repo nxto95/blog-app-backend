@@ -17,6 +17,8 @@ export class BlockedUserGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<IAuthenticatedRequest>();
 
+    if (!request.user) return true;
+
     const { id } = request.user;
 
     if (!id) {

@@ -37,6 +37,7 @@ export class AuthTokensProvider {
       expiresAt: input.expiresAt,
       revokedAt: null,
       replacedBy: input.replacedBy ?? null,
+      userAgent: input.userAgent,
     });
 
     return mg.save(RefreshTokenEntity, refreshToken);
@@ -54,8 +55,7 @@ export class AuthTokensProvider {
       secret: this.config.getOrThrow<string>('JWT_ACCESS_SECRET'),
       expiresIn: this.config.getOrThrow<number>('JWT_ACCESS_EXPIRES_IN'),
     });
-
-    return { accessToken };
+    return accessToken;
   }
 
   async issueRefreshToken(userId: string) {
@@ -85,20 +85,18 @@ export class AuthTokensProvider {
       .getRepository(RefreshTokenEntity)
       .update({ jti, revokedAt: IsNull() }, { revokedAt: new Date() });
   }
-
-  async revokeFamily(jti: string, familyId: string, manager?: EntityManager) {
+  async revokeFamily(familyId: string, manager?: EntityManager) {
     const mg = manager ?? this.dataSource.manager;
     await mg.update(
       RefreshTokenEntity,
       {
-        jti,
         familyId,
       },
       { revokedAt: new Date() },
     );
   }
 
-  async getRefreshTokenByJti(jti: string, manager?: EntityManager) {
+  async getRefreshTokenByJtiWithLock(jti: string, manager?: EntityManager) {
     const mg = manager ?? this.dataSource.manager;
     const refreshTokenRecord = await mg.findOne(RefreshTokenEntity, {
       where: {
