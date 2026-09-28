@@ -16,18 +16,24 @@ export class CommentEntity extends CommonEntity {
     onDelete: 'CASCADE',
   })
   user: UserEntity;
+  @Column({ type: 'uuid' })
+  userId: string;
 
   @ManyToOne(() => PostEntity, (post) => post.comments, {
     nullable: false,
     onDelete: 'CASCADE',
   })
   post: PostEntity;
+  @Column({ type: 'uuid' })
+  postId: string;
 
   @ManyToOne(() => CommentEntity, (comment) => comment.replies, {
     nullable: true,
     onDelete: 'CASCADE',
   })
   parent: CommentEntity | null;
+  @Column({ type: 'uuid', nullable: true })
+  parentId: string | null;
 
   @OneToMany(() => CommentEntity, (comment) => comment.parent)
   replies: CommentEntity[];

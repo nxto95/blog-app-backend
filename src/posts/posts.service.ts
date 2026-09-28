@@ -9,7 +9,7 @@ export class PostsService {
 
   async create(userId: string, dto: CreatePostDto, manager?: EntityManager) {
     const mg = manager ?? this.dataSource.manager;
-    const post = mg.create(PostEntity, { ...dto, user: { id: userId } });
+    const post = mg.create(PostEntity, { ...dto, userId });
     return mg.save(PostEntity, post);
   }
 
@@ -20,11 +20,7 @@ export class PostsService {
     manager?: EntityManager,
   ) {
     const mg = manager ?? this.dataSource.manager;
-    const result = await mg.update(
-      PostEntity,
-      { id: postId, user: { id: userId } },
-      dto,
-    );
+    const result = await mg.update(PostEntity, { id: postId, userId }, dto);
     if (result.affected === 0) throw new NotFoundException('post not found');
   }
 
@@ -32,7 +28,7 @@ export class PostsService {
     const mg = manager ?? this.dataSource.manager;
     const result = await mg.softDelete(PostEntity, {
       id: postId,
-      user: { id: userId },
+      userId,
     });
     if (result.affected === 0) throw new NotFoundException('post not found');
   }
@@ -41,7 +37,7 @@ export class PostsService {
     const mg = manager ?? this.dataSource.manager;
     const result = await mg.delete(PostEntity, {
       id: postId,
-      user: { id: userId },
+      userId,
     });
     if (result.affected === 0) throw new NotFoundException('post not found');
   }
@@ -50,7 +46,7 @@ export class PostsService {
     const mg = manager ?? this.dataSource.manager;
     const result = await mg.restore(PostEntity, {
       id: postId,
-      user: { id: userId },
+      userId,
     });
     if (result.affected === 0) throw new NotFoundException('post not found');
   }
@@ -58,7 +54,7 @@ export class PostsService {
   async getById(userId: string, postId: string, manager?: EntityManager) {
     const mg = manager ?? this.dataSource.manager;
     const post = await mg.findOne(PostEntity, {
-      where: { id: postId, user: { id: userId } },
+      where: { id: postId, userId },
     });
     if (!post) throw new NotFoundException('post not found');
     return post;
@@ -66,9 +62,9 @@ export class PostsService {
 
   async getUserPosts(userId: string, manager?: EntityManager) {
     const mg = manager ?? this.dataSource.manager;
-    const post = await mg.find(PostEntity, {
-      where: { user: { id: userId } },
+    const [posts, count] = await mg.findAndCount(PostEntity, {
+      where: { userId },
     });
-    return post;
+    return { posts, count };
   }
 }

@@ -1,6 +1,10 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
-import { CreateUserDto } from '../common/dtos/users.dto';
+import { CreateUserDto, UpdateUserDto } from '../common/dtos/users.dto';
 import { UserEntity } from '../common/entities/users.entity';
 import * as argon2 from 'argon2';
 import {
@@ -38,6 +42,24 @@ export class UsersService {
     });
 
     return mg.save(UserEntity, user);
+  }
+
+  async update(userId: string, dto: UpdateUserDto, manager?: EntityManager) {
+    const mg = manager ?? this.dataSource.manager;
+    const result = await mg.update(UserEntity, { id: userId }, dto);
+    if (result.affected === 0) throw new NotFoundException('user not found');
+  }
+
+  async softDelete(userId: string, manager?: EntityManager) {
+    const mg = manager ?? this.dataSource.manager;
+    const result = await mg.softDelete(UserEntity, { id: userId });
+    if (result.affected === 0) throw new NotFoundException('user not found');
+  }
+
+  async hardDelete(userId: string, manager?: EntityManager) {
+    const mg = manager ?? this.dataSource.manager;
+    const result = await mg.delete(UserEntity, { id: userId });
+    if (result.affected === 0) throw new NotFoundException('user not found');
   }
 
   async getByEmail(email: string, manager?: EntityManager) {

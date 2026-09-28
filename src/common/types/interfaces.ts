@@ -1,3 +1,4 @@
+import { Request } from 'express';
 import { UserRole } from './enums';
 
 export interface IRequestWithCookies extends Request {
@@ -29,4 +30,10 @@ export interface IRefreshTokenPayload {
   sub: string;
   jti: string;
   type: 'refresh';
+}
+
+export interface RequestWithPostId extends Request {
+  body: {
+    postId: string | undefined;
+  };
 }

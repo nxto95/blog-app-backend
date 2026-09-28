@@ -7,11 +7,14 @@ import {
 } from '@nestjs/common';
 import { QueryFailedErrorFilter } from './common/filters/query-failed-error.filter';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
 const logger = new Logger('App');
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.use(cookieParser());
+  app.enableCors();
+  app.use(helmet());
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

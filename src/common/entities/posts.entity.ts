@@ -25,6 +25,9 @@ export class PostEntity extends CommonEntity {
   })
   user: UserEntity;
 
+  @Column({ type: 'uuid' })
+  userId: string;
+
   @OneToMany(() => CommentEntity, (comment) => comment.post)
   comments: CommentEntity[];
 }

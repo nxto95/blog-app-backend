@@ -1,5 +1,6 @@
 import { IsEmail, IsString, IsStrongPassword, Length } from 'class-validator';
 import { TrimLowerCase } from '../utils/utils';
+import { PartialType, PickType } from '@nestjs/mapped-types';
 
 export class CreateUserDto {
   @IsString()
@@ -26,3 +27,7 @@ export class CreateUserDto {
   )
   password: string;
 }
+
+export class UpdateUserDto extends PickType(PartialType(CreateUserDto), [
+  'username',
+] as const) {}
